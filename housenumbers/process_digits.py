@@ -29,55 +29,44 @@ def main2():
   #print data['X'].shape, len(data['X']), data['X'].shape[-1]
   #print data['y'].shape, len(data['y'])
 
-  x_train = []
-  y_train = []
-  for i in range(data['X'].shape[-1]):
-    img = data['X'][:,:,:,i]
-    d = data['y'][i]
-    x_train.append(img)
-    y_train.append(d)
-
+  x_train = data['X'] / 255
+  y_train = data['y']
+  y_train = y_train.reshape(y_train.shape[0]) - 1
+  x_train = x_train.astype('float32')
   img_rows = 32
   img_cols = 32
-  x_train = np.array(x_train)
-  y_train = np.array(y_train)
   print x_train.shape, y_train.shape
   
   if K.image_data_format() == 'channels_first':
     x_train = x_train.reshape(x_train.shape[0], 3, img_rows, img_cols)
     input_shape = (3, img_rows, img_cols)
   else:
-    x_train = x_train.reshape(x_train.shape[0], img_rows, img_cols, 3)
+    x_train = x_train.reshape(x_train.shape[3], img_rows, img_cols, 3)
     input_shape = (img_rows, img_cols, 3)
 
-
-  
+  num_classes = 10
+  y_train = keras.utils.to_categorical(y_train, num_classes)
   print x_train.shape
   print y_train.shape
   
-  #x_train = np.array(x_train)
-
   model = Sequential()
-  #input_shape = (32,32,3)
-  num_classes = 10
-  
-  model.add(Conv2D(16, kernel_size=(3, 3),
+  model.add(Conv2D(32, kernel_size=(3, 3),
                  activation='relu',
                  input_shape=input_shape))
   #model.add(Conv2D(64, (3, 3), activation='relu'))
-  #model.add(MaxPooling2D(pool_size=(2, 2)))
+  model.add(MaxPooling2D(pool_size=(2, 2)))
   #model.add(Dropout(0.25))
-  #model.add(Flatten())
-  #model.add(Dense(16, activation='relu'))
-  #model.add(Dropout(0.5))
-  #model.add(Dense(num_classes, activation='softmax'))
+  model.add(Flatten())
+  model.add(Dense(16, activation='relu'))
+  model.add(Dropout(0.5))
+  model.add(Dense(num_classes, activation='softmax'))
   
   model.compile(loss=keras.losses.categorical_crossentropy,
               optimizer=keras.optimizers.Adadelta(),
               metrics=['accuracy'])
 
   model.fit(x_train, y_train,
-            batch_size=10, epochs=10000, verbose = 1, validation_split=0.1)
+            batch_size=100, epochs=10000, verbose = 1, validation_split=0.1)
   #            x_test, y_test)
   
 main2()

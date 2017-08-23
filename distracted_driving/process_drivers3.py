@@ -12,6 +12,7 @@ from keras.preprocessing.image import ImageDataGenerator
 import csv
 img_height = 64
 img_width = img_height
+batch_size=32
 
 model = Sequential()
 
@@ -80,7 +81,7 @@ model.add(Dropout(0.5))
 
 model.add(Dense(10, activation='softmax'))
 #weights-improvement-55-0.99.hdf5
-model.load_weights("weights-improvement-3--04-0.80.hdf5")
+#model.load_weights("weights-improvement-3--04-0.80.hdf5")
 print model.summary()
 
 train_datagen = ImageDataGenerator(rescale = 1./255,
@@ -92,12 +93,12 @@ test_datagen = ImageDataGenerator(rescale = 1./255)
 
 training_set = train_datagen.flow_from_directory('train',
                                                  target_size = (img_height, img_width),
-                                                 batch_size = 16,
+                                                 batch_size = batch_size,
                                                  class_mode = 'categorical')
 
 test_set = test_datagen.flow_from_directory('val',
                                             target_size = (img_height, img_width),
-                                            batch_size = 16,
+                                            batch_size = batch_size,
                                             class_mode = 'categorical')
 
 
@@ -107,15 +108,16 @@ model.compile(optimizer=Adam(lr=0.001),
 #model.compile(optimizer=SGD(lr=0.01, momentum=0.0, decay=0.0, nesterov=False),
 #              loss='categorical_crossentropy', metrics=['accuracy'])
 
-filepath="weights-improvement-3--{epoch:02d}-{val_acc:.2f}.hdf5"
+filepath="weights-improvement-3--{epoch:02d}-{categorical_accuracy:.2f}.hdf5"
 checkpoint = ModelCheckpoint(filepath, monitor='categorical_accuracy', verbose=1, save_best_only=True, mode='max')
 callbacks_list = [checkpoint]
 
 model.fit_generator(training_set,
-                         steps_per_epoch = 14000/16,
+                         steps_per_epoch = 14000/batch_size,
                          epochs = 300,
                          validation_data = test_set,
-                         validation_steps = 7000/16, callbacks=callbacks_list)
+                         validation_steps = 7000/batch_size,
+                         callbacks=callbacks_list)
 print model.summary()
 #sys.exit(1)
 

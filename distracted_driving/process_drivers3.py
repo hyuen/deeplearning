@@ -1,60 +1,86 @@
 #!/usr/bin/env python
 import numpy as np
 from keras.layers.core import Flatten, Dense, Dropout
-from keras.layers.convolutional import Conv2D
-from keras.layers.pooling import MaxPooling2D 
+from keras.layers.convolutional import Conv2D, ZeroPadding2D
 from keras.layers.normalization import BatchNormalization
-from keras.optimizers import SGD
+from keras.layers.pooling import MaxPooling2D 
+from keras.optimizers import SGD, Adam
 from keras.models import Sequential
 from keras.callbacks import ModelCheckpoint
 from keras.preprocessing.image import ImageDataGenerator
 
 import csv
+img_height = 64
+img_width = img_height
 
 model = Sequential()
 
-model.add(Conv2D(16, 3, input_shape=(256, 256, 3), activation='relu'))
 
-model.add(Conv2D(16, 3,  activation = 'relu'))
-model.add(MaxPooling2D(pool_size=(2, 2), strides=(2,2)))
-model.add(Dropout(0.3))
-
-model.add(Conv2D(32, 3,  activation = 'relu'))       
-model.add(Conv2D(32, 3,  activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1), input_shape=(img_height, img_width,3)))
+model.add(Conv2D(16, 3, activation='relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(32, 3, activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(32, 3, activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(64, 3, activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(64, 3, activation = 'relu'))
+model.add(BatchNormalization(axis=1))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.3))
 
+model.add(ZeroPadding2D(padding=(1,1)))
 model.add(Conv2D(64, 3,  activation = 'relu'))       
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(128, 3,  activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(256, 3,  activation = 'relu'))
+model.add(BatchNormalization(axis=1))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Dropout(0.3))
+
+
+model.add(ZeroPadding2D(padding=(1,1)))
 model.add(Conv2D(64, 3,  activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(128, 3,  activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(256, 3,  activation = 'relu'))
+model.add(BatchNormalization(axis=1))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.3))
 
-model.add(Conv2D(128, 3,  activation = 'relu'))       
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(64, 3,  activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
 model.add(Conv2D(128, 3,  activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(256, 3,  activation = 'relu'))
+model.add(BatchNormalization(axis=1))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.3))
 
-model.add(Conv2D(128, 3,  activation = 'relu'))       
+
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(64, 3,  activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
 model.add(Conv2D(128, 3,  activation = 'relu'))
-model.add(Conv2D(128, 3,  activation = 'relu'))
-model.add(Conv2D(128, 3,  activation = 'relu'))
+model.add(ZeroPadding2D(padding=(1,1)))
+model.add(Conv2D(256, 3,  activation = 'relu'))
+model.add(BatchNormalization(axis=1))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.3))
 
-#model.add(Conv2D(256, 3,  activation = 'relu'))       
-#model.add(Conv2D(256, 3,  activation = 'relu'))
-#model.add(Conv2D(256, 3,  activation = 'relu'))
-#model.add(Conv2D(256, 3,  activation = 'relu'))
-#model.add(MaxPooling2D(pool_size=(2, 2), strides=(2,2)))
 
-model.add(Dropout(0.3))
+#model.add(Dropout(0.3))
 model.add(Flatten())
 model.add(Dense(1024, activation='relu'))
 model.add(Dropout(0.5))
 
 model.add(Dense(10, activation='softmax'))
 #weights-improvement-55-0.99.hdf5
-model.load_weights("weights-improvement-3--41-0.98.hdf5")
+model.load_weights("weights-improvement-3--04-0.80.hdf5")
 print model.summary()
 
 train_datagen = ImageDataGenerator(rescale = 1./255,
@@ -65,25 +91,29 @@ train_datagen = ImageDataGenerator(rescale = 1./255,
 test_datagen = ImageDataGenerator(rescale = 1./255)
 
 training_set = train_datagen.flow_from_directory('train',
-                                                 target_size = (256, 256),
+                                                 target_size = (img_height, img_width),
                                                  batch_size = 16,
                                                  class_mode = 'categorical')
 
 test_set = test_datagen.flow_from_directory('val',
-                                            target_size = (256, 256),
+                                            target_size = (img_height, img_width),
                                             batch_size = 16,
                                             class_mode = 'categorical')
 
-model.compile(optimizer=SGD(lr=0.01, momentum=0.0, decay=0.0, nesterov=False),
-              loss='categorical_crossentropy', metrics=['accuracy'])
+
+model.compile(optimizer=Adam(lr=0.001),
+              loss='categorical_crossentropy', metrics=['categorical_accuracy'])
+
+#model.compile(optimizer=SGD(lr=0.01, momentum=0.0, decay=0.0, nesterov=False),
+#              loss='categorical_crossentropy', metrics=['accuracy'])
 
 filepath="weights-improvement-3--{epoch:02d}-{val_acc:.2f}.hdf5"
-checkpoint = ModelCheckpoint(filepath, monitor='val_acc', verbose=1, save_best_only=True, mode='max')
+checkpoint = ModelCheckpoint(filepath, monitor='categorical_accuracy', verbose=1, save_best_only=True, mode='max')
 callbacks_list = [checkpoint]
 
 model.fit_generator(training_set,
                          steps_per_epoch = 14000/16,
-                         epochs = 0,
+                         epochs = 300,
                          validation_data = test_set,
                          validation_steps = 7000/16, callbacks=callbacks_list)
 print model.summary()
@@ -91,7 +121,7 @@ print model.summary()
 
 
 submit_datagen = ImageDataGenerator(rescale= 1./255) #'sub/test'
-submit_set = submit_datagen.flow_from_directory('sub/test', target_size= (256,256), batch_size=1, class_mode=None)
+submit_set = submit_datagen.flow_from_directory('sub/test', target_size= (img_widht, img_height), batch_size=1, class_mode=None)
 
 with open('submission.csv', 'w') as csvfile:
   csvw = csv.writer(csvfile)

@@ -17,8 +17,8 @@ batch_size=32
 model = Sequential()
 
 
-model.add(ZeroPadding2D(padding=(1,1), input_shape=(img_height, img_width,3)))
-model.add(Conv2D(16, 3, activation='relu'))
+model.add(ZeroPadding2D(padding=(2,2), input_shape=(img_height, img_width,3)))
+model.add(Conv2D(16, (5,5), activation='relu'))
 model.add(ZeroPadding2D(padding=(1,1)))
 model.add(Conv2D(32, 3, activation = 'relu'))
 model.add(ZeroPadding2D(padding=(1,1)))
@@ -81,7 +81,7 @@ model.add(Dropout(0.5))
 
 model.add(Dense(10, activation='softmax'))
 #weights-improvement-55-0.99.hdf5
-#model.load_weights("weights-improvement-3--04-0.80.hdf5")
+model.load_weights("weights-improvement-3--18-0.97.hdf5")
 print model.summary()
 
 train_datagen = ImageDataGenerator(rescale = 1./255,
@@ -114,7 +114,7 @@ callbacks_list = [checkpoint]
 
 model.fit_generator(training_set,
                          steps_per_epoch = 14000/batch_size,
-                         epochs = 300,
+                         epochs = 0,
                          validation_data = test_set,
                          validation_steps = 7000/batch_size,
                          callbacks=callbacks_list)
@@ -123,7 +123,7 @@ print model.summary()
 
 
 submit_datagen = ImageDataGenerator(rescale= 1./255) #'sub/test'
-submit_set = submit_datagen.flow_from_directory('sub/test', target_size= (img_widht, img_height), batch_size=1, class_mode=None)
+submit_set = submit_datagen.flow_from_directory('sub/test', target_size= (img_width, img_height), batch_size=1, class_mode=None)
 
 with open('submission.csv', 'w') as csvfile:
   csvw = csv.writer(csvfile)

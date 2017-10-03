@@ -113,6 +113,7 @@ def sgd_backprop2():
     a_1 = tf.nn.softmax(z_1)
 
     cost = tf.reduce_mean(tf.reduce_mean(tf.squared_difference(a_1, y)))
+    cost = tf.identity(cost, "cost")
 
     print tf.trainable_variables()
     train_step = tf.train.GradientDescentOptimizer(0.01).minimize(cost)
@@ -127,6 +128,25 @@ def sgd_backprop2():
             sess.run(train_step, feed_dict = {a_0: batch_xs,
                                         y : batch_ys})
 
+def min_square():
+    x = tf.placeholder(tf.float32, [None, 1], name='x')
+    y = tf.placeholder(tf.float32, [None, 1], name='y')
+
+    m = tf.Variable(tf.truncated_normal([1]), name="m")
+    b = tf.Variable(tf.truncated_normal([1]), name="b")
+
+    yhat = m * x + b
+    cost = tf.reduce_mean(tf.squared_difference(y, yhat))
+
+    train_step = tf.train.GradientDescentOptimizer(0.001).minimize(cost)
+
+    config = tf.ConfigProto(device_count={'GPU': 0})
+    with tf.Session(config=config) as sess:
+        writer = tf.summary.FileWriter('/tmp/1', graph=sess.graph)
+        tf.global_variables_initializer().run()
+
+
 #manual_backprop()
 #sgd_backprop()
-sgd_backprop2()
+#sgd_backprop2()
+min_square()

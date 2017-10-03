@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import tensorflow as tf
+import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
 
 
@@ -78,17 +79,17 @@ def sgd_backprop():
     acct_mat = tf.equal(tf.argmax(a_1, 1), tf.argmax(y, 1))
     acct_res = tf.reduce_sum(tf.cast(acct_mat, tf.float32))
 
-    cross_entropy = tf.reduce_mean(-tf.reduce_sum(y * tf.log(a_1), reduction_indices=[1]))
+    cross_entropy = tf.reduce_sum(-tf.reduce_sum(y * tf.log(a_1), reduction_indices=[1]))
 
     print tf.trainable_variables()
-    train_step = tf.train.GradientDescentOptimizer(0.01).minimize(cross_entropy)
+    train_step = tf.train.GradientDescentOptimizer(0.001).minimize(cross_entropy)
 
     config = tf.ConfigProto(device_count={'GPU': 0})
     with tf.Session(config=config) as sess:
         writer = tf.summary.FileWriter('/tmp/1', graph=sess.graph)
         tf.global_variables_initializer().run()
 
-        for i in xrange(1000):
+        for i in xrange(100000):
             batch_xs, batch_ys = mnist.train.next_batch(10)
             sess.run(train_step, feed_dict = {a_0: batch_xs,
                                         y : batch_ys})
@@ -96,7 +97,7 @@ def sgd_backprop():
                 res = sess.run(acct_res, feed_dict =
                                {a_0: mnist.test.images[:1000],
                                 y : mnist.test.labels[:1000]})
-                print i, res
+                # print i, res
 
 
 def sgd_backprop2():
@@ -138,6 +139,7 @@ def min_square():
     yhat = m * x + b
     cost = tf.reduce_mean(tf.squared_difference(y, yhat))
 
+    #train_step = tf.train.AdamOptimizer(0.01).minimize(cost)
     train_step = tf.train.GradientDescentOptimizer(0.001).minimize(cost)
 
     config = tf.ConfigProto(device_count={'GPU': 0})
@@ -145,8 +147,19 @@ def min_square():
         writer = tf.summary.FileWriter('/tmp/1', graph=sess.graph)
         tf.global_variables_initializer().run()
 
+        for i in xrange(10000):
+            batch_xs= np.random.rand(10,1)
+            batch_ys = batch_xs * 2 + 5
+            #print batch_xs, batch_ys
+            sess.run(train_step, feed_dict={x: batch_xs,
+                                            y: batch_ys})
+            #print sess.run([m, b, yhat], feed_dict={x: batch_xs,
+            #                                y: batch_ys})
+
+        print m.eval(), b.eval()
+
 
 #manual_backprop()
-#sgd_backprop()
+sgd_backprop()
 #sgd_backprop2()
-min_square()
+#min_square()

@@ -46,12 +46,6 @@ def dense():
             # print sess.run(L)
 
 
-"""    ht = MutableHashTable(key_dtype=tf.string,
-                          value_dtype=tf.int64,
-                          default_value=-1)
-"""
-
-
 def dense_manual():
     mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
@@ -63,18 +57,21 @@ def dense_manual():
 
     z = tf.add(tf.matmul(x, w), b)
 
-    yhat = tf.nn.softmax(z)
+    yhat = sigma(z)
 
-    L = tf.reduce_sum(-y * tf.log(yhat))
+    diff = y - yhat
+    d_z = tf.multiply(diff, sigmaprime(z))
 
-    d_L = tf.reduce_sum(-y / (yhat+1))
-    d_z = d_L * sigmaprime(z)
+    #L = tf.reduce_sum(-y * tf.log(yhat))
+    #d_L = tf.reduce_sum(-tf.div(y,yhat))
+    #d_z = d_L * sigmaprime(z)
+
     d_b = d_z
     d_w = tf.matmul(x, d_z, transpose_a=True)
 
     delta = tf.constant(0.0001)
 
-    print "shapes", tf.shape(d_L), tf.shape(z), tf.shape(d_z), tf.shape(d_b), tf.shape(d_w)
+    print "shapes", tf.shape(z), tf.shape(d_z), tf.shape(d_b), tf.shape(d_w)
 
     step = [
         tf.assign(w, tf.subtract(w, tf.multiply(delta, d_w))),
@@ -89,10 +86,77 @@ def dense_manual():
         tf.global_variables_initializer().run()
         print "s, ", tf.shape(w), tf.shape(b)
 
-        for i in xrange(5):
+        for i in xrange(1000):
             batch_xs, batch_ys = mnist.train.next_batch(10)
             sess.run(step, feed_dict={x: batch_xs, y: batch_ys})
             # if i % 1000 == 0:
-            print i, sess.run([y, yhat, L], feed_dict={x: batch_xs, y: batch_ys})
+            #print i, sess.run([b, z, yhat, y, L], feed_dict={x: batch_xs, y: batch_ys})
+            print i, np.sum(sess.run([diff], feed_dict={x: batch_xs, y: batch_ys}))
+
+
+
+def get_z_updates_forward(ht, x):
+    # returns only the cols that need to be forward propagated
+    pass
+
+def get_z_updates_backward(ht, x):
+    # returns only the cols that need to be forward propagated
+    pass
+
+def sparse():
+    mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+
+    x = tf.placeholder(tf.float32, [None, 784])
+    y = tf.placeholder(tf.float32, [None, 10])
+
+    w = tf.Variable(tf.truncated_normal([784, 10]))
+    b = tf.Variable(tf.truncated_normal([10]))
+
+    ht = MutableHashTable(key_dtype=tf.string,
+                          value_dtype=tf.int64,
+                          default_value=-1)
+
+    cols, values = get_z_updates_forward(ht, x)
+    
+    z = tf.add(tf.matmul(x, w), b)
+
+
+
+    yhat = sigma(z)
+
+    diff = y - yhat
+    d_z = tf.multiply(diff, sigmaprime(z))
+
+    # L = tf.reduce_sum(-y * tf.log(yhat))
+    # d_L = tf.reduce_sum(-tf.div(y,yhat))
+    # d_z = d_L * sigmaprime(z)
+
+    d_b = d_z
+    d_w = tf.matmul(x, d_z, transpose_a=True)
+
+    delta = tf.constant(0.0001)
+
+    print "shapes", tf.shape(z), tf.shape(d_z), tf.shape(d_b), tf.shape(d_w)
+
+    step = [
+        tf.assign(w, tf.subtract(w, tf.multiply(delta, d_w))),
+        tf.assign(b, tf.subtract(b, tf.multiply(delta, tf.reduce_mean(d_b, axis=[0]))))  # why reduce mean?
+    ]
+
+    print tf.trainable_variables()
+
+    config = tf.ConfigProto(device_count={'GPU': 0})
+
+    with tf.Session(config=config) as sess:
+        tf.global_variables_initializer().run()
+        print "s, ", tf.shape(w), tf.shape(b)
+
+        for i in xrange(1000):
+            batch_xs, batch_ys = mnist.train.next_batch(10)
+            sess.run(step, feed_dict={x: batch_xs, y: batch_ys})
+            # if i % 1000 == 0:
+            # print i, sess.run([b, z, yhat, y, L], feed_dict={x: batch_xs, y: batch_ys})
+            print i, np.sum(sess.run([diff], feed_dict={x: batch_xs, y: batch_ys}))
+
 
 dense_manual()

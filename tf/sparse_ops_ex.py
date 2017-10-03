@@ -4,6 +4,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.lookup import MutableHashTable
 
 def get_values(x, ht):
+    pass
 
 def sparse_test():
     config = tf.ConfigProto(device_count={'GPU': 0})

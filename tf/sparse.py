@@ -31,7 +31,7 @@ def dense():
     L = tf.reduce_sum(-y * tf.log(yhat))
 
     print tf.trainable_variables()
-    train_step = tf.train.GradientDescentOptimizer(0.001).minimize(L)
+    train_step = tf.train.GradientDescentOptimizer(0.0001).minimize(L)
 
     with tf.Session() as sess:
         tf.global_variables_initializer().run()
@@ -59,12 +59,10 @@ def dense_manual():
 
     yhat = sigma(z)
 
-    diff = y - yhat
-    d_z = tf.multiply(diff, sigmaprime(z))
+    L = -tf.reduce_sum(y * tf.log(yhat))
 
-    #L = tf.reduce_sum(-y * tf.log(yhat))
-    #d_L = tf.reduce_sum(-tf.div(y,yhat))
-    #d_z = d_L * sigmaprime(z)
+    d_yhat = -(tf.div(y,yhat))
+    d_z = d_yhat * sigmaprime(z)
 
     d_b = d_z
     d_w = tf.matmul(x, d_z, transpose_a=True)
@@ -75,8 +73,8 @@ def dense_manual():
 
     step = [
         tf.assign(w, tf.subtract(w, tf.multiply(delta, d_w))),
-        tf.assign(b, tf.subtract(b, tf.multiply(delta, tf.reduce_mean(d_b, axis=[0])))) # why reduce mean?
-    ]
+        tf.assign(b, tf.subtract(b, tf.multiply(delta, tf.reduce_sum(d_b, axis=[0])))) # why reduce mean?
+        ]
 
     print tf.trainable_variables()
 
@@ -86,12 +84,11 @@ def dense_manual():
         tf.global_variables_initializer().run()
         print "s, ", tf.shape(w), tf.shape(b)
 
-        for i in xrange(1000):
+        for i in xrange(10000):
             batch_xs, batch_ys = mnist.train.next_batch(10)
             sess.run(step, feed_dict={x: batch_xs, y: batch_ys})
-            # if i % 1000 == 0:
-            #print i, sess.run([b, z, yhat, y, L], feed_dict={x: batch_xs, y: batch_ys})
-            print i, np.sum(sess.run([diff], feed_dict={x: batch_xs, y: batch_ys}))
+            if i % 1000 == 0:
+                print i, sess.run(L, feed_dict={x: batch_xs, y: batch_ys})
 
 
 
@@ -112,12 +109,15 @@ def sparse():
     w = tf.Variable(tf.truncated_normal([784, 10]))
     b = tf.Variable(tf.truncated_normal([10]))
 
+
     ht = MutableHashTable(key_dtype=tf.string,
                           value_dtype=tf.int64,
                           default_value=-1)
 
     cols, values = get_z_updates_forward(ht, x)
-    
+
+
+    #z__1 =
     z = tf.add(tf.matmul(x, w), b)
 
 
@@ -158,5 +158,5 @@ def sparse():
             # print i, sess.run([b, z, yhat, y, L], feed_dict={x: batch_xs, y: batch_ys})
             print i, np.sum(sess.run([diff], feed_dict={x: batch_xs, y: batch_ys}))
 
-
+#dense()
 dense_manual()

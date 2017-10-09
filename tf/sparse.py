@@ -4,7 +4,7 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.lookup import MutableHashTable
-
+import sys
 
 def sigma(x):
     return tf.div(tf.constant(1.0),
@@ -92,8 +92,12 @@ def dense_manual():
 
 
 
-def get_z_updates_forward(ht, x):
+def get_w_updates_forward(ht, w, x):
     # returns only the cols that need to be forward propagated
+    cols = tf.constant([[1],[3],[9]], tf.int64) # computed through ht,x
+    return cols
+
+def get_b_updates_forward(ht, x):
     pass
 
 def get_z_updates_backward(ht, x):
@@ -106,57 +110,144 @@ def sparse():
     x = tf.placeholder(tf.float32, [None, 784])
     y = tf.placeholder(tf.float32, [None, 10])
 
-    w = tf.Variable(tf.truncated_normal([784, 10]))
-    b = tf.Variable(tf.truncated_normal([10]))
+    w = tf.Variable(tf.truncated_normal([784, 10]), name='w')
+    b = tf.Variable(tf.truncated_normal([10]), name='b')
 
+    z_d = tf.Variable(tf.truncated_normal([1, 10]), name='z_d')
 
     ht = MutableHashTable(key_dtype=tf.string,
                           value_dtype=tf.int64,
                           default_value=-1)
 
-    cols, values = get_z_updates_forward(ht, x)
+    # Forward Path
+    #
+    # z = w * x + b
+    # yhat = sigma(z)
+    # diff = yhat - y
+
+    # init ht, should it be after one epoch?
+    # cols = ht(x)
+    # z_1 = sparse(w, cols) * x + sparse(b, cols)
+    # z = update(z, z_1, cols)
+    # yhat_1 = sigma(z_1)
+    # yhat = update(yhat, yhat_1)
+    # diff = yhat - y
 
 
-    #z__1 =
-    z = tf.add(tf.matmul(x, w), b)
+    # Backprop
+    #
+    #
 
 
+    # Dense section
+    #forward
+    res1_1 = tf.add(tf.matmul(x, w), b)
+    print "before assigning--- ", z_d.get_shape(), res1_1, res1_1.get_shape()
+    tf.assign(z_d, res1_1)
+    yhat_d = sigma(z_d)
 
+    diff = y - yhat_d
+    d_z = tf.multiply(diff, sigmaprime(z_d))
+
+    L = -tf.reduce_sum(y * tf.log(yhat_d))
+
+    # backward
+    d_yhat_d = -(tf.div(y, yhat_d))
+    d_z_d = d_yhat_d * sigmaprime(z_d)
+
+    d_b_d = d_z_d
+    d_w_d = tf.matmul(x, d_z_d, transpose_a=True)
+
+    ####################################################################3
+    # Sparse section
+    # forward
+    hot_cols = get_w_updates_forward(ht, w, x)
+    data = tf.gather_nd(tf.transpose(w), hot_cols)
+    w_1 = tf.IndexedSlices(data, hot_cols, dense_shape=tf.shape(w))
+    print "---pre2", w_1.values.get_shape(), "w", hot_cols.get_shape()
+
+    print "types", w.dtype, b.dtype
+
+    data2 = tf.gather_nd(tf.transpose(b), hot_cols)
+    b_1 = tf.IndexedSlices(hot_cols, data2, dense_shape=tf.shape(b))
+    print "---pre3", b_1.values.get_shape(), "b", hot_cols.get_shape(), b_1.values.dtype, data2.dtype
+
+
+    print "dtype=", tf.shape(w_1.values), w_1.values.dtype, w_1.values.dtype, b_1.values.dtype
+    i_1 = tf.matmul(x, tf.transpose(w_1.values))
+    print "pre_z", i_1.get_shape(), tf.transpose(b_1.values).get_shape()
+    z_1 = tf.add(i_1, tf.cast(tf.transpose(b_1.values), tf.float32))
+
+    print "before running", z_d, w, w_1
+    z_d = tf.scatter_update(z_d, hot_cols, tf.transpose(z_1))
+    """
     yhat = sigma(z)
 
     diff = y - yhat
     d_z = tf.multiply(diff, sigmaprime(z))
+    """
+    # backward
 
-    # L = tf.reduce_sum(-y * tf.log(yhat))
-    # d_L = tf.reduce_sum(-tf.div(y,yhat))
-    # d_z = d_L * sigmaprime(z)
-
-    d_b = d_z
-    d_w = tf.matmul(x, d_z, transpose_a=True)
 
     delta = tf.constant(0.0001)
 
-    print "shapes", tf.shape(z), tf.shape(d_z), tf.shape(d_b), tf.shape(d_w)
+    #print "shapes", tf.shape(z), tf.shape(d_z), tf.shape(d_b), tf.shape(d_w)
 
-    step = [
-        tf.assign(w, tf.subtract(w, tf.multiply(delta, d_w))),
-        tf.assign(b, tf.subtract(b, tf.multiply(delta, tf.reduce_mean(d_b, axis=[0]))))  # why reduce mean?
+
+    dense_step = [
+        tf.assign(w, tf.subtract(w, tf.multiply(delta, d_w_d))),
+        tf.assign(b, tf.subtract(b, tf.multiply(delta, tf.reduce_mean(d_b_d, axis=[0]))))
+    ]
+
+    populate_ht = [
+
+
+    ]
+
+    sparse_step = [
+        # forward
+        # cols = ht(x)
+        # z_1 = sparse(w, cols) * x + sparse(b, cols)
+        # z = update(z, z_1, cols)
+        # yhat_1 = sigma(z_1)
+        # yhat = update(yhat, yhat_1)
+        # diff = yhat - y
     ]
 
     print tf.trainable_variables()
 
+    sys.exit(0)
     config = tf.ConfigProto(device_count={'GPU': 0})
 
     with tf.Session(config=config) as sess:
+        writer = tf.summary.FileWriter('/tmp/1', graph=sess.graph)
+
         tf.global_variables_initializer().run()
         print "s, ", tf.shape(w), tf.shape(b)
 
-        for i in xrange(1000):
+        ndense = 10
+        nsparse = 1000
+
+        # do the first iteration here, then update the hash table
+        print "running %d dense steps first" % ndense
+        for i in xrange(ndense):
             batch_xs, batch_ys = mnist.train.next_batch(10)
-            sess.run(step, feed_dict={x: batch_xs, y: batch_ys})
-            # if i % 1000 == 0:
-            # print i, sess.run([b, z, yhat, y, L], feed_dict={x: batch_xs, y: batch_ys})
-            print i, np.sum(sess.run([diff], feed_dict={x: batch_xs, y: batch_ys}))
+            sess.run(dense_step, feed_dict={x: batch_xs, y: batch_ys})
+
+        sess.run(populate_ht)
+
+        # do the rest of the iterations
+
+        print "-----dtype=running", tf.shape(w_1.values), w_1.values.dtype
+
+        print "running %d sparse steps" % nsparse
+        report_period_nsparse = nsparse / 10
+        for i in xrange(nsparse):
+            batch_xs, batch_ys = mnist.train.next_batch(10)
+            sess.run(sparse_step, feed_dict={x: batch_xs, y: batch_ys})
+            if i % nsparse == 0:
+                print i, np.sum(sess.run([diff], feed_dict={x: batch_xs, y: batch_ys}))
 
 #dense()
-dense_manual()
+#dense_manual()
+sparse()

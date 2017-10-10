@@ -163,21 +163,29 @@ def sparse():
     # forward
     hot_cols = get_w_updates_forward(ht, w, x)
     print "---hot columns", hot_cols.get_shape()
-    data = tf.gather_nd(tf.transpose(w), hot_cols)
+    data = tf.transpose(tf.gather_nd(tf.transpose(w), hot_cols))
     w_1 = tf.IndexedSlices(data, hot_cols, dense_shape=tf.shape(w))
-    print "---submatrix w_1", w_1.values.get_shape()
+    print "---submatrix w_1", w_1.values.get_shape(), "original", w.get_shape()
 
-    data2 = tf.gather_nd(tf.transpose(b), hot_cols)
+    data2 = tf.transpose(tf.gather_nd(tf.transpose(b), hot_cols))
     b_1 = tf.IndexedSlices(data2, hot_cols, dense_shape=tf.shape(b))
-    print "---b b_1", b_1.values.get_shape(), b_1.values.dtype
+    print "---b b_1", b_1.values.get_shape(), "original", b.get_shape()
 
-    i_1 = tf.matmul(x, tf.transpose(w_1.values))
-    print "--pre_z", i_1.get_shape(), tf.transpose(b_1.values).get_shape()
-    z_1 = tf.add(i_1, tf.transpose(b_1.values))
+    z_1 = tf.add(tf.matmul(x, w_1.values), b_1.values)
     print "--post_z", z_1.get_shape(), z_d.get_shape()
 
     print "before running", z_d, w, w_1
-    z_d += tf.sparse_to_dense(hot_cols, tf.shape(z_d), tf.transpose(z_1))
+
+    z_11 = tf.scatter_nd(hot_cols, tf.transpose(z_1), tf.shape(z_d))
+    print "foo---", z_11.get_shape()
+
+    #z_11 = tf.sparse_to_dense(hot_cols, tf.shape(z_d), tf.transpose(z_1))
+    #z_d = tf.scatter_update(z_d, hot_cols, tf.transpose(z_1))
+    z_d = z_11
+
+
+    print "---sparse2dense", z_11.get_shape(), z_1.get_shape(), z_d.get_shape()
+    #z_d += z_11
     #z_d = tf.scatter_update(z_d, hot_cols, tf.transpose(z_1))
 
     yhat = sigma(z_d)
@@ -228,8 +236,14 @@ def sparse():
         tf.global_variables_initializer().run()
         print "s, ", tf.shape(w), tf.shape(b)
 
-        ndense = 10
-        nsparse = 1000
+        batch_xs, batch_ys = mnist.train.next_batch(10)
+        z_1_e, z_11_e, z_d_e = sess.run([z_1, z_11, z_d], feed_dict={x: batch_xs, y: batch_ys})
+        #print "ff", z_1_e, z_1_e.shape
+        #print "fg", z_11_e, z_11_e.shape
+        #print "fh", z_d_e, z_d_e.shape
+
+        ndense = 100
+        nsparse = 100000
 
         # do the first iteration here, then update the hash table
         print "running %d dense steps first" % ndense
@@ -238,18 +252,22 @@ def sparse():
             sess.run(dense_step, feed_dict={x: batch_xs, y: batch_ys})
 
         sess.run(populate_ht)
+        print "-----xsparse2dense", tf.shape(z_11), tf.shape(z_d)
 
         # do the rest of the iterations
 
         print "-----dtype=running", tf.shape(w_1.values), w_1.values.dtype
 
         print "running %d sparse steps" % nsparse
-        report_period_nsparse = nsparse / 10
+        report_period_nsparse = nsparse / 100
         for i in xrange(nsparse):
             batch_xs, batch_ys = mnist.train.next_batch(10)
+            #print "shape", batch_xs.shape
             sess.run(sparse_step, feed_dict={x: batch_xs, y: batch_ys})
-            if i % nsparse == 0:
-                print i, np.sum(sess.run([diff], feed_dict={x: batch_xs, y: batch_ys}))
+            if i % nsparse == 0 and nsparse > 0:
+            #print diff.eval()
+                print i, np.sum(sess.run(diff, feed_dict={x: batch_xs, y: batch_ys}))
+                pass
 
 #dense()
 #dense_manual()

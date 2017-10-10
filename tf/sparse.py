@@ -94,7 +94,7 @@ def dense_manual():
 
 def get_w_updates_forward(ht, w, x):
     # returns only the cols that need to be forward propagated
-    cols = tf.constant([[1],[3],[9]], tf.int64) # computed through ht,x
+    cols = tf.constant([[1],[3],[9]], tf.int32) # computed through ht,x
     return cols
 
 def get_b_updates_forward(ht, x):
@@ -113,7 +113,8 @@ def sparse():
     w = tf.Variable(tf.truncated_normal([784, 10]), name='w')
     b = tf.Variable(tf.truncated_normal([10]), name='b')
 
-    z_d = tf.Variable(tf.truncated_normal([1, 10]), name='z_d')
+    #z_d = tf.placeholder(tf.float32, [None, 10])
+    #z_d = tf.Variable(tf.truncated_normal([1,10]), name='z_d')
 
     ht = MutableHashTable(key_dtype=tf.string,
                           value_dtype=tf.int64,
@@ -141,9 +142,8 @@ def sparse():
 
     # Dense section
     #forward
-    res1_1 = tf.add(tf.matmul(x, w), b)
-    print "before assigning--- ", z_d.get_shape(), res1_1, res1_1.get_shape()
-    tf.assign(z_d, res1_1)
+    z_d = tf.add(tf.matmul(x, w), b)
+    #tf.assign(z_d, tf.add(tf.matmul(x, w), b))
     yhat_d = sigma(z_d)
 
     diff = y - yhat_d
@@ -162,30 +162,29 @@ def sparse():
     # Sparse section
     # forward
     hot_cols = get_w_updates_forward(ht, w, x)
+    print "---hot columns", hot_cols.get_shape()
     data = tf.gather_nd(tf.transpose(w), hot_cols)
     w_1 = tf.IndexedSlices(data, hot_cols, dense_shape=tf.shape(w))
-    print "---pre2", w_1.values.get_shape(), "w", hot_cols.get_shape()
-
-    print "types", w.dtype, b.dtype
+    print "---submatrix w_1", w_1.values.get_shape()
 
     data2 = tf.gather_nd(tf.transpose(b), hot_cols)
-    b_1 = tf.IndexedSlices(hot_cols, data2, dense_shape=tf.shape(b))
-    print "---pre3", b_1.values.get_shape(), "b", hot_cols.get_shape(), b_1.values.dtype, data2.dtype
+    b_1 = tf.IndexedSlices(data2, hot_cols, dense_shape=tf.shape(b))
+    print "---b b_1", b_1.values.get_shape(), b_1.values.dtype
 
-
-    print "dtype=", tf.shape(w_1.values), w_1.values.dtype, w_1.values.dtype, b_1.values.dtype
     i_1 = tf.matmul(x, tf.transpose(w_1.values))
-    print "pre_z", i_1.get_shape(), tf.transpose(b_1.values).get_shape()
-    z_1 = tf.add(i_1, tf.cast(tf.transpose(b_1.values), tf.float32))
+    print "--pre_z", i_1.get_shape(), tf.transpose(b_1.values).get_shape()
+    z_1 = tf.add(i_1, tf.transpose(b_1.values))
+    print "--post_z", z_1.get_shape(), z_d.get_shape()
 
     print "before running", z_d, w, w_1
-    z_d = tf.scatter_update(z_d, hot_cols, tf.transpose(z_1))
-    """
-    yhat = sigma(z)
+    z_d += tf.sparse_to_dense(hot_cols, tf.shape(z_d), tf.transpose(z_1))
+    #z_d = tf.scatter_update(z_d, hot_cols, tf.transpose(z_1))
+
+    yhat = sigma(z_d)
 
     diff = y - yhat
-    d_z = tf.multiply(diff, sigmaprime(z))
-    """
+    d_z = tf.multiply(diff, sigmaprime(z_d))
+
     # backward
 
 

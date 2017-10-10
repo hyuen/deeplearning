@@ -184,7 +184,8 @@ def sparse():
 
     diff = y - yhat
     d_z = tf.multiply(diff, sigmaprime(z_d))
-
+    d_b = d_z
+    d_w = tf.matmul(x, d_z, transpose_a=True)
     # backward
 
 
@@ -211,11 +212,14 @@ def sparse():
         # yhat_1 = sigma(z_1)
         # yhat = update(yhat, yhat_1)
         # diff = yhat - y
+
+        tf.assign(w, tf.subtract(w, tf.multiply(delta, d_w))),
+        tf.assign(b, tf.subtract(b, tf.multiply(delta, tf.reduce_mean(d_b, axis=[0]))))
     ]
 
     print tf.trainable_variables()
 
-    sys.exit(0)
+    #sys.exit(0)
     config = tf.ConfigProto(device_count={'GPU': 0})
 
     with tf.Session(config=config) as sess:

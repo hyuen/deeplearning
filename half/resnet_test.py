@@ -12,6 +12,7 @@ import time
 import numpy as np
 from torchvision import datasets, models, transforms
 import matplotlib.pyplot as plt
+from adam16 import Adam16
 plt.ion()
 
 
@@ -108,7 +109,8 @@ model.fc = nn.Linear(num_ftrs, 100)
 model = model.cuda()
 criterion = nn.CrossEntropyLoss()
 
-optimizer = optim.SGD(model.fc.parameters(), lr=1e-3, momentum=0.9)
+#optimizer = optim.SGD(model.fc.parameters(), lr=1e-3, momentum=0.9)
+optimizer = Adam16(model.fc.parameters())
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 

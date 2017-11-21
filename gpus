@@ -1,2 +1,2 @@
-gtx 650
-gtx 960M
+gtx 1060 cuda_capability=6.1
+gtx 960M cuda_capability=5.0

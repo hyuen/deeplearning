@@ -222,7 +222,7 @@ def sparse():
         # diff = yhat - y
 
         tf.assign(w, tf.subtract(w, tf.multiply(delta, d_w))),
-        tf.assign(b, tf.subtract(b, tf.multiply(delta, tf.reduce_mean(d_b, axis=[0]))))
+        #tf.assign(b, tf.subtract(b, tf.multiply(delta, tf.reduce_mean(d_b, axis=[0]))))
     ]
 
     print tf.trainable_variables()

@@ -13,6 +13,7 @@ import numpy as np
 from torchvision import datasets, models, transforms
 import matplotlib.pyplot as plt
 from adam16 import Adam16
+
 plt.ion()
 
 
@@ -51,7 +52,11 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
             running_corrects = 0
 
             # Iterate over data.
+            ct = 0
             for data in dataloaders[phase]:
+                ct = ct +1
+                if ct > 100:
+                    break
                 # get the inputs
                 inputs, labels = data
 
@@ -105,7 +110,7 @@ model = models.resnet18(pretrained=True)
 
 
 num_ftrs = model.fc.in_features
-model.fc = nn.Linear(num_ftrs, 100)
+#model.fc = nn.Linear(num_ftrs, 100)
 model = model.cuda()
 criterion = nn.CrossEntropyLoss()
 
@@ -129,7 +134,7 @@ data_transforms = {
     ]),
 }
 
-data_dir = '/home/hyz/prog/data/data_10'
+data_dir = '/data/prog/ml/data_10'
 image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x),
                                           data_transforms[x])
                   for x in ['train', 'val']}
@@ -145,7 +150,7 @@ inputs, classes = next(iter(dataloaders['train']))
 
 
 model = train_model(model, criterion, optimizer, exp_lr_scheduler,
-                    num_epochs=5)
+                    num_epochs=1)
 
 sys.exit(0)
 

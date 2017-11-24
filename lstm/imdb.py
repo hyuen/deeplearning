@@ -26,33 +26,24 @@ class RNNModel(nn.Module):
         self.dense.weight.data.uniform_(-initrange, initrange)
 
     def init_hidden(self, bsz):
-        return (Variable(torch.zeros(1, 1, self.nhid).cuda()),
-                Variable(torch.zeros(1, 1, self.nhid).cuda()))
+        return (Variable(torch.zeros(1, 1, self.nhid)), # .cuda()),
+                Variable(torch.zeros(1, 1, self.nhid))) #.cuda()))
 
     def forward(self, sentence, hidden):
-        #print("sentence", sentence.size())
         embeds = self.encoder(sentence)
-        #print("embeds", embeds.size())
         lstm_out, hidden = self.rnn(embeds, hidden)
-        #print('lstm out', lstm_out.size(),[h.size() for h in hidden])
-
         lstm_out = lstm_out.select(1, len(sentence)-1).contiguous()
         lstm_out = lstm_out.view(-1, self.nhid)
-        #print('lstm out', lstm_out.size(),[h.size() for h in hidden])
-
         decoded = self.dense(lstm_out) 
-        #print('decoded', decoded.size())
         output = self.sm(decoded)
-        #print("sigmoided", output.size())
-        #print (output.size())
         return output, hidden
 
 
 def get_batch(x, y, i, batch_size, evaluation=False):
-    d = torch.from_numpy(x[i:i+batch_size]).float()
+    d = torch.from_numpy(x[i:i+batch_size]).long()
     t = torch.from_numpy(y[i:i+batch_size]).float().view(-1)
-    data = Variable(d.cuda(), volatile=evaluation)
-    target = Variable(d.cuda())
+    data = Variable(d, volatile=evaluation)
+    target = Variable(t)
 
     return data, target
 
@@ -105,7 +96,7 @@ def main():
 
 
     model = RNNModel()
-    model.cuda()
+    #modelcuda()
     criterion = nn.BCELoss()
     train(model, criterion, x_train, y_train, x_test, y_test)
 

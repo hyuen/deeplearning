@@ -5,16 +5,18 @@ import torch.nn as nn
 from torch.autograd import Variable
 import bcolz
 
+use_cuda = 1
 
 class RNNModel(nn.Module):
-    def __init__(self, ntoken=20000, ninp=128, nhid=128, nlayers=1):
+    def __init__(self, ntoken=20000, ninp=128, nhid=128, nlayers=5):
         super(RNNModel, self).__init__()
         self.ninp = ninp
         self.nhid = nhid
         self.nlayers = nlayers
 
         self.encoder = nn.Embedding(ntoken, ninp)
-        self.rnn = nn.LSTM(ninp, nhid, nlayers, dropout=0.2)
+        self.rnn = nn.LSTM(input_size=ninp, hidden_size=nhid, num_layers=nlayers, dropout=0.2)
+        #        self.gru = nn.GRU(input_size=nhid, hidden_size=64, dropout=0.2)
         self.dense = nn.Linear(nhid, 1)
         self.sm = nn.Sigmoid()
         self.init_weights()
@@ -26,28 +28,42 @@ class RNNModel(nn.Module):
         self.dense.weight.data.uniform_(-initrange, initrange)
 
     def init_hidden(self, bsz):
-        return (Variable(torch.zeros(1, 1, self.nhid)), # .cuda()),
-                Variable(torch.zeros(1, 1, self.nhid))) #.cuda()))
+        if use_cuda:
+            return (Variable(torch.zeros(self.nlayers, bsz, self.nhid).cuda()),
+                    Variable(torch.zeros(self.nlayers, bsz, self.nhid).cuda()))
+        else:
+            return (Variable(torch.zeros(self.nlayers, bsz, self.nhid)),
+                    Variable(torch.zeros(self.nlayers, bsz, self.nhid)))
 
     def forward(self, sentence, hidden):
+        #print("sentence", sentence.size())
         embeds = self.encoder(sentence)
+        #print ("embeds", embeds.size())
         lstm_out, hidden = self.rnn(embeds, hidden)
-        lstm_out = lstm_out.select(1, len(sentence)-1).contiguous()
-        lstm_out = lstm_out.view(-1, self.nhid)
-        decoded = self.dense(lstm_out) 
-        output = self.sm(decoded)
+        #print("out", lstm_out.size())
+        lstm_out = lstm_out.select(0, len(sentence)-1).contiguous()
+        #print("out", lstm_out.size())
+
+        decoded = self.dense(lstm_out)
+        #print("decoded", decoded.size())
+        output = self.sm(decoded).view(-1)
+        #print("sigmoid", output.size())
+
         return output, hidden
 
 
 def get_batch(x, y, i, batch_size, evaluation=False):
-    d = torch.from_numpy(x[i:i+batch_size]).long()
-    t = torch.from_numpy(y[i:i+batch_size]).float().view(-1)
+    d = torch.from_numpy(x[i:i+batch_size].transpose()).long()
+    t = torch.from_numpy(y[i:i+batch_size].transpose()).float().view(-1)
+    if use_cuda:
+        d = d.cuda()
+        t = t.cuda()
     data = Variable(d, volatile=evaluation)
     target = Variable(t)
 
     return data, target
 
-    
+lr = 0.01
 def train(model, criterion, x_train, y_train, x_test, y_test):
     model.train()
     total_loss = 0
@@ -61,22 +77,28 @@ def train(model, criterion, x_train, y_train, x_test, y_test):
 
         model.zero_grad()
         output, hidden = model(data, hidden)
-        print('target', output.size(), targets.view(-1,1).size())
-        #print(output, targets)
-        loss = criterion(output, targets.view(-1,1))
+        #print("output_sz", output.size(), targets.size()) 
+        loss = criterion(output, targets)
         loss.backward(retain_graph=True)
-        print("loss", i, loss.data, total_loss)
-        #continue
+        #if i % 100 == 0:
     
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
         torch.nn.utils.clip_grad_norm(model.parameters(), 0.25)
         for p in model.parameters():
-            p.data.add_(-0.01, p.grad.data)
+            p.data.add_(-lr , p.grad.data)
 
         total_loss += loss.data
-        continue
 
+        if batch % 10 == 0 and batch > 0:
+            cur_loss = total_loss[0] / 2
+            elapsed = time.time() - start_time
+            print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
+                    'loss {:5.2f} | ppl {:8.2f}'.format(
+                1, batch, 25000// 32, lr,
+                        elapsed * 1000 / 2,cur_loss, math.exp(cur_loss)))
+            total_loss = 0
 
+start_time = time.time()
 def main():
     max_features = 20000
     #maxlen = 80  # cut texts after this number of words (among top max_features most common words)
@@ -96,7 +118,8 @@ def main():
 
 
     model = RNNModel()
-    #modelcuda()
+    if use_cuda:
+        model = model.cuda()
     criterion = nn.BCELoss()
     train(model, criterion, x_train, y_train, x_test, y_test)
 

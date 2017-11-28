@@ -2,13 +2,14 @@ import time
 import math
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from torch.autograd import Variable
 import bcolz
 
 use_cuda = 1
 
 class RNNModel(nn.Module):
-    def __init__(self, ntoken=20000, ninp=128, nhid=128, nlayers=5):
+    def __init__(self, ntoken=20000, ninp=128, nhid=128, nlayers=7):
         super(RNNModel, self).__init__()
         self.ninp = ninp
         self.nhid = nhid
@@ -16,7 +17,8 @@ class RNNModel(nn.Module):
 
         self.encoder = nn.Embedding(ntoken, ninp)
         self.rnn = nn.LSTM(input_size=ninp, hidden_size=nhid, num_layers=nlayers, dropout=0.2)
-        #        self.gru = nn.GRU(input_size=nhid, hidden_size=64, dropout=0.2)
+        #self.gru = nn.GRU(input_size=nhid, hidden_size=64, dropout=0.2)
+        #self.gru = nn.LSTM(nhid, 64, dropout=0.2)
         self.dense = nn.Linear(nhid, 1)
         self.sm = nn.Sigmoid()
         self.init_weights()
@@ -36,18 +38,11 @@ class RNNModel(nn.Module):
                     Variable(torch.zeros(self.nlayers, bsz, self.nhid)))
 
     def forward(self, sentence, hidden):
-        #print("sentence", sentence.size())
         embeds = self.encoder(sentence)
-        #print ("embeds", embeds.size())
         lstm_out, hidden = self.rnn(embeds, hidden)
-        #print("out", lstm_out.size())
-        lstm_out = lstm_out.select(0, len(sentence)-1).contiguous()
-        #print("out", lstm_out.size())
-
+        lstm_out = lstm_out[-1]
         decoded = self.dense(lstm_out)
-        #print("decoded", decoded.size())
         output = self.sm(decoded).view(-1)
-        #print("sigmoid", output.size())
 
         return output, hidden
 
@@ -63,46 +58,43 @@ def get_batch(x, y, i, batch_size, evaluation=False):
 
     return data, target
 
-lr = 0.01
-def train(model, criterion, x_train, y_train, x_test, y_test):
+
+def train(model, criterion, x_train, y_train, x_test, y_test, epoch, lr):
     model.train()
     total_loss = 0
     start_time = time.time()
 
-    batch_size = 32
+    batch_size = 128
+    reporting_size = batch_size
 
-    hidden = model.init_hidden(batch_size)
-    for batch, i in enumerate(range(0, len(x_train), batch_size)):
-        data, targets = get_batch(x_train, y_train, i, batch_size)
-
-        model.zero_grad()
-        output, hidden = model(data, hidden)
-        #print("output_sz", output.size(), targets.size()) 
-        loss = criterion(output, targets)
-        loss.backward(retain_graph=True)
-        #if i % 100 == 0:
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)
     
-        # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-        torch.nn.utils.clip_grad_norm(model.parameters(), 0.25)
-        for p in model.parameters():
-            p.data.add_(-lr , p.grad.data)
+    for batch, i in enumerate(range(0, int(len(x_train)/batch_size * batch_size) -batch_size, batch_size)):
+        data, targets = get_batch(x_train, y_train, i, batch_size)
+        hidden = model.init_hidden(batch_size)
+        optimizer.zero_grad()
+
+        output, hidden = model(data, hidden)
+        loss = criterion(output, targets)
+        loss.backward()
+        optimizer.step()
 
         total_loss += loss.data
 
-        if batch % 10 == 0 and batch > 0:
-            cur_loss = total_loss[0] / 2
+        if batch % reporting_size == 0 and batch > 0:
+            cur_loss = total_loss[0] / reporting_size
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} batches | lr {:02.2f} | ms/batch {:5.2f} | '
-                    'loss {:5.2f} | ppl {:8.2f}'.format(
-                1, batch, 25000// 32, lr,
-                        elapsed * 1000 / 2,cur_loss, math.exp(cur_loss)))
+                    'loss {:5.4f} | ppl {:8.2f}'.format(
+                        epoch, batch, 25000// 32, lr,
+                        elapsed * 1000 / reporting_size,cur_loss, math.exp(cur_loss)))
+            start_time = time.time()
+
             total_loss = 0
 
 start_time = time.time()
 def main():
     max_features = 20000
-    #maxlen = 80  # cut texts after this number of words (among top max_features most common words)
-    batch_size = 32
 
     print('Loading data')
     x_train = bcolz.open(rootdir="x_train")
@@ -121,10 +113,11 @@ def main():
     if use_cuda:
         model = model.cuda()
     criterion = nn.BCELoss()
-    train(model, criterion, x_train, y_train, x_test, y_test)
+    lr = 0.1
+    for epoch in range(15):
+        train(model, criterion, x_train, y_train, x_test, y_test, epoch, lr)
 
-
-        
-main()    
+if __name__ == "__main__":
+    main()
 #r = RNNModel()                            
 # https://github.com/pytorch/examples/blob/master/word_language_model/model.py

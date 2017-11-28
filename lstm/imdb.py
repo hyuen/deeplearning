@@ -3,6 +3,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
 from torch.autograd import Variable
 import bcolz
 
@@ -40,6 +41,7 @@ class RNNModel(nn.Module):
     def forward(self, sentence, hidden):
         embeds = self.encoder(sentence)
         lstm_out, hidden = self.rnn(embeds, hidden)
+        # return the last element
         lstm_out = lstm_out[-1]
         decoded = self.dense(lstm_out)
         output = self.sm(decoded).view(-1)
@@ -92,7 +94,7 @@ def train(model, criterion, x_train, y_train, x_test, y_test, epoch, lr):
 
             total_loss = 0
 
-start_time = time.time()
+
 def main():
     max_features = 20000
 
@@ -119,5 +121,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 #r = RNNModel()                            
 # https://github.com/pytorch/examples/blob/master/word_language_model/model.py
